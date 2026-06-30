@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": ".solo-engine-test",
+    "rootDir": "."
+  },
+  "include": [
+    "scripts/solo-engine-smoke.ts",
+    "src/domain/solo/**/*.ts",
+    "src/services/game/BoardVocabulary.ts",
+    "src/data/word-packs/**/*.ts",
+    "src/types/game.types.ts",
+    "src/utils/string.utils.ts"
+  ]
+}

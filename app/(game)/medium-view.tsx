@@ -1,0 +1,254 @@
+import React, { useState } from 'react';
+import { ImageBackground, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { router } from 'expo-router';
+import { SafeAreaWrapper } from '../../src/components/layout/SafeAreaWrapper';
+import { Button } from '../../src/components/ui/Button';
+import { Modal } from '../../src/components/ui/Modal';
+import { GameBoard } from '../../src/components/game/GameBoard';
+import { useGameStore } from '../../src/store/gameStore';
+import { CellOwner } from '../../src/types/game.types';
+import { validateWhisper, validateWhisperNumber } from '../../src/services/game/WordValidator';
+import { COLORS, SPACING } from '../../src/constants/theme';
+import { useAudioTrack } from '../../src/hooks/useAudioTrack';
+
+const FONDO = require('../../assets/images/fondo.png');
+
+const OWNER_COLORS: Record<CellOwner, string> = {
+  BLUE:    COLORS.blueGlow,
+  RED:     COLORS.redGlow,
+  NEUTRAL: 'rgba(140,136,160,0.80)',
+  CURSED:  COLORS.cursedGlow,
+};
+
+const OWNER_LABELS: Record<CellOwner, string> = {
+  BLUE:    'AZUL',
+  RED:     'ROJO',
+  NEUTRAL: 'NEUTRAL',
+  CURSED:  'MALDITA',
+};
+
+export default function MediumViewScreen() {
+  const { session, submitWhisper } = useGameStore();
+  useAudioTrack('TENSION');
+  const [modalVisible, setModalVisible]   = useState(false);
+  const [whisperWord, setWhisperWord]     = useState('');
+  const [whisperNumber, setWhisperNumber] = useState('');
+  const [validationError, setValidationError] = useState('');
+
+  if (!session) { router.replace('/'); return null; }
+
+  const { board, activeTeam } = session;
+  const teamLabel = activeTeam === 'BLUE' ? 'AZUL' : 'ROJO';
+  const teamColor = activeTeam === 'BLUE' ? COLORS.blueGlow : COLORS.redGlow;
+  const teamBorderColor = activeTeam === 'BLUE'
+    ? 'rgba(138,200,255,0.30)'
+    : 'rgba(255,128,128,0.30)';
+
+  function handleSubmit() {
+    setValidationError('');
+    const wordVal = validateWhisper(whisperWord, board);
+    if (!wordVal.valid) { setValidationError(wordVal.reason ?? 'Susurro invalido.'); return; }
+    if (!validateWhisperNumber(whisperNumber)) {
+      setValidationError('Número 0-9 o infinito.');
+      return;
+    }
+    const num = whisperNumber === '∞' || whisperNumber.toUpperCase() === 'INFINITE'
+      ? 'INFINITE' as const
+      : parseInt(whisperNumber, 10);
+    submitWhisper(whisperWord.toUpperCase().trim(), num);
+    setModalVisible(false);
+    setWhisperWord('');
+    setWhisperNumber('');
+    router.push('/(game)/board');
+  }
+
+  return (
+    <ImageBackground source={FONDO} style={styles.bg} resizeMode="cover">
+    <SafeAreaWrapper style={styles.transparent}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* ── Cabecera ── */}
+        <View style={[styles.header, { borderBottomColor: teamBorderColor }]}>
+          <Text style={styles.headerEyebrow}>👁 FASE DEL MEDIUM</Text>
+          <Text style={[styles.headerTeam, { color: teamColor }]}>
+            JUGADOR {teamLabel} ES EL MEDIUM
+          </Text>
+          <Text style={styles.headerNote}>
+            Solo tú ves los colores del tablero. Elige una pista y un número para guiar a tu equipo.
+          </Text>
+        </View>
+
+        {/* ── Tablero ── */}
+        <View style={styles.boardContainer}>
+          <GameBoard
+            board={board}
+            activeTeam={activeTeam}
+            disabled
+            revealAll
+            onSelectCell={() => {}}
+          />
+        </View>
+
+        {/* ── Leyenda ── */}
+        <View style={styles.legend}>
+          {(['BLUE', 'RED', 'NEUTRAL', 'CURSED'] as CellOwner[]).map((owner) => (
+            <View key={owner} style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: OWNER_COLORS[owner] }]} />
+              <Text style={[styles.legendLabel, { color: OWNER_COLORS[owner] }]}>
+                {OWNER_LABELS[owner]}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* ── CTA ── */}
+        <View style={styles.cta}>
+          <Button label="DAR PISTA A MI EQUIPO" variant="primary" onPress={() => setModalVisible(true)} />
+        </View>
+
+      </ScrollView>
+
+      <Modal visible={modalVisible} title="DAR PISTA" onClose={() => setModalVisible(false)}>
+        <Text style={modalStyles.label}>PALABRA PISTA</Text>
+        <Text style={modalStyles.hint}>Una sola palabra que conecte las cartas de tu equipo</Text>
+        <TextInput
+          style={modalStyles.input}
+          value={whisperWord}
+          onChangeText={(t) => setWhisperWord(t.toUpperCase())}
+          placeholder="Ej: OCÉANO"
+          placeholderTextColor={COLORS.textMuted}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          maxLength={30}
+        />
+
+        <Text style={[modalStyles.label, { marginTop: SPACING.md }]}>¿CUÁNTAS CARTAS ADIVINARÁN?</Text>
+        <Text style={modalStyles.hint}>Escribe un número (1-9) o ∞ para infinito</Text>
+        <TextInput
+          style={modalStyles.input}
+          value={whisperNumber}
+          onChangeText={setWhisperNumber}
+          placeholder="2"
+          placeholderTextColor={COLORS.textMuted}
+          keyboardType="default"
+          maxLength={8}
+        />
+
+        {validationError ? <Text style={modalStyles.error}>{validationError}</Text> : null}
+
+        <View style={{ height: SPACING.lg }} />
+        <Button label="ENVIAR PISTA" variant="primary" onPress={handleSubmit} />
+        <View style={{ height: SPACING.sm }} />
+        <Button label="CANCELAR" variant="ghost" onPress={() => setModalVisible(false)} />
+      </Modal>
+    </SafeAreaWrapper>
+    </ImageBackground>
+  );
+}
+
+const styles = StyleSheet.create({
+  bg:          { flex: 1 },
+  transparent: { backgroundColor: 'transparent' },
+
+  scroll: {
+    padding: SPACING.base,
+    paddingBottom: SPACING['2xl'],
+  },
+
+  header: {
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    marginBottom: SPACING.md,
+    borderBottomWidth: 1,
+  },
+  headerEyebrow: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 10,
+    color: 'rgba(200,169,107,0.60)',
+    letterSpacing: 4,
+    marginBottom: 4,
+  },
+  headerTeam: {
+    fontFamily: 'Cinzel-Bold',
+    fontSize: 26,
+    letterSpacing: 5,
+    textShadowColor: 'rgba(0,0,0,0.9)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 10,
+  },
+  headerNote: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 11,
+    color: 'rgba(160,155,175,0.70)',
+    marginTop: 6,
+    fontStyle: 'italic',
+    letterSpacing: 0.5,
+  },
+
+  boardContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(200,169,107,0.20)',
+    borderRadius: 8,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.xs,
+    backgroundColor: 'rgba(8,7,16,0.65)',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+  },
+  legendLabel: {
+    fontFamily: 'Cinzel-Bold',
+    fontSize: 9,
+    letterSpacing: 1.5,
+  },
+
+  cta: { marginTop: SPACING.xs },
+});
+
+const modalStyles = StyleSheet.create({
+  label: {
+    fontFamily: 'Cinzel-Bold',
+    fontSize: 10,
+    color: 'rgba(200,169,107,0.80)',
+    letterSpacing: 2.5,
+    marginBottom: SPACING.sm,
+  },
+  input: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 20,
+    color: COLORS.textPrimary,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(200,169,107,0.40)',
+    paddingVertical: SPACING.sm,
+    letterSpacing: 3,
+  },
+  hint: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 11,
+    color: 'rgba(180,160,120,0.60)',
+    marginBottom: SPACING.sm,
+    letterSpacing: 0.2,
+  },
+  error: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    color: COLORS.error,
+    marginTop: SPACING.sm,
+  },
+});
