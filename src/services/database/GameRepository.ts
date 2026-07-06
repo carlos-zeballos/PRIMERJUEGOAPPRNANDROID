@@ -3,6 +3,7 @@ import { GameSession } from '../../types/game.types';
 
 interface GameRow {
   id: string;
+  uid: string | null;
   config_json: string;
   board_json: string;
   turns_json: string;
@@ -38,15 +39,16 @@ function rowToSession(row: GameRow): GameSession {
   };
 }
 
-export async function saveGameSession(session: GameSession): Promise<void> {
+export async function saveGameSession(session: GameSession, uid?: string): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
     `INSERT OR REPLACE INTO game_sessions
-      (id, config_json, board_json, turns_json, active_team, phase, result,
+      (id, uid, config_json, board_json, turns_json, active_team, phase, result,
        blue_score, red_score, blue_total, red_total, started_at, ended_at, synced_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       session.id,
+      uid ?? null,
       JSON.stringify(session.config),
       JSON.stringify(session.board),
       JSON.stringify(session.turns),
@@ -79,4 +81,21 @@ export async function getActiveGame(): Promise<GameSession | null> {
     "SELECT * FROM game_sessions WHERE phase != 'GAME_OVER' ORDER BY started_at DESC LIMIT 1"
   );
   return row ? rowToSession(row) : null;
+}
+
+/** Partidas de un usuario, terminadas, que todavía no se registraron en Realtime Database. */
+export async function getPendingGames(uid: string, limit = 50): Promise<GameSession[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<GameRow>(
+    `SELECT * FROM game_sessions
+     WHERE uid = ? AND ended_at IS NOT NULL AND synced_at IS NULL
+     ORDER BY ended_at ASC LIMIT ?`,
+    [uid, limit]
+  );
+  return rows.map(rowToSession);
+}
+
+export async function markGameSynced(id: string, syncedAt: number): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync('UPDATE game_sessions SET synced_at = ? WHERE id = ?', [syncedAt, id]);
 }

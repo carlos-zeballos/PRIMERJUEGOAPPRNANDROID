@@ -10,6 +10,7 @@ import { CellOwner } from '../../src/types/game.types';
 import { validateWhisper, validateWhisperNumber } from '../../src/services/game/WordValidator';
 import { COLORS, SPACING } from '../../src/constants/theme';
 import { useAudioTrack } from '../../src/hooks/useAudioTrack';
+import { useTurnCountdown } from '../../src/hooks/useTurnCountdown';
 
 const FONDO = require('../../assets/images/fondo.png');
 
@@ -28,14 +29,29 @@ const OWNER_LABELS: Record<CellOwner, string> = {
 };
 
 export default function MediumViewScreen() {
-  const { session, submitWhisper } = useGameStore();
+  const { session, submitWhisper, skipMediumTurn } = useGameStore();
   useAudioTrack('TENSION');
   const [modalVisible, setModalVisible]   = useState(false);
   const [whisperWord, setWhisperWord]     = useState('');
   const [whisperNumber, setWhisperNumber] = useState('');
   const [validationError, setValidationError] = useState('');
 
-  if (!session) { router.replace('/'); return null; }
+  // El hook debe llamarse siempre en el mismo orden — por eso el "apagado"
+  // del countdown se resuelve pasando seconds=null en vez de saltarse el
+  // hook con un return temprano (session puede ser null en este punto).
+  const remainingSeconds = useTurnCountdown(
+    session?.phase === 'MEDIUM_TURN' ? session.config.mediumTimeSeconds : null,
+    session?.activeTeam ?? '',
+    () => {
+      setModalVisible(false);
+      skipMediumTurn();
+    },
+  );
+
+  if (!session) { router.replace('/(tabs)'); return null; }
+  // Evita reenviar una pista si se volvió a esta pantalla (back/gesto) tras
+  // que la fase ya avanzó — antes esto quedaba como un no-op silencioso.
+  if (session.phase !== 'MEDIUM_TURN') { router.replace('/(game)/board'); return null; }
 
   const { board, activeTeam } = session;
   const teamLabel = activeTeam === 'BLUE' ? 'AZUL' : 'ROJO';
@@ -59,7 +75,7 @@ export default function MediumViewScreen() {
     setModalVisible(false);
     setWhisperWord('');
     setWhisperNumber('');
-    router.push('/(game)/board');
+    router.replace('/(game)/board');
   }
 
   return (
@@ -76,6 +92,11 @@ export default function MediumViewScreen() {
           <Text style={styles.headerNote}>
             Solo tú ves los colores del tablero. Elige una pista y un número para guiar a tu equipo.
           </Text>
+          {remainingSeconds !== null && (
+            <Text style={[styles.countdown, remainingSeconds <= 10 && styles.countdownUrgent]}>
+              ⏱ {remainingSeconds}s
+            </Text>
+          )}
         </View>
 
         {/* ── Tablero ── */}
@@ -183,6 +204,16 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontStyle: 'italic',
     letterSpacing: 0.5,
+  },
+  countdown: {
+    fontFamily: 'Cinzel-Bold',
+    fontSize: 16,
+    color: 'rgba(200,169,107,0.85)',
+    marginTop: 8,
+    letterSpacing: 2,
+  },
+  countdownUrgent: {
+    color: COLORS.error,
   },
 
   boardContainer: {

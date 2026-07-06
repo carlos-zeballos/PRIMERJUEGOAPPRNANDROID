@@ -279,10 +279,20 @@ function singleWordFallback(
     }
   }
 
-  return fallbackClue(activeTeam, rng, history);
+  // Quedan cartas propias por encontrar pero ningún candidato pasó los
+  // filtros de vocabulario/riesgo: la pista de respaldo debe igual apuntar
+  // a una carta real (la primera del barajado), si no cualquier selección
+  // del jugador se clasificaría como error ('wrong_own') aunque eligiera
+  // una carta propia legítima — no había ningún objetivo posible.
+  return fallbackClue(activeTeam, rng, history, [shuffled[0].id]);
 }
 
-function fallbackClue(team: TeamColor, rng: SeededRandom, history: ClueHistory): MediumClue {
+function fallbackClue(
+  team: TeamColor,
+  rng: SeededRandom,
+  history: ClueHistory,
+  targetCellIds: string[] = [],
+): MediumClue {
   const fallbacks = team === 'BLUE'
     ? ['SOMBRA', 'CAMINO', 'MISTERIO', 'REFUGIO']
     : ['FUEGO', 'NOCHE', 'PODER', 'DESTINO'];
@@ -292,8 +302,8 @@ function fallbackClue(team: TeamColor, rng: SeededRandom, history: ClueHistory):
   return {
     clueId: `${normalize(clue)}-fallback`,
     clue,
-    count: 1,
-    targetCellIds: [],
+    count: targetCellIds.length || 1,
+    targetCellIds,
     explanation: [],
     confidence: 0.1,
     riskScore: 0.5,

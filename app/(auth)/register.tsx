@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -11,7 +12,7 @@ import {
 import { router } from 'expo-router';
 import { SafeAreaWrapper } from '../../src/components/layout/SafeAreaWrapper';
 import { Button } from '../../src/components/ui/Button';
-import { useAuthStore } from '../../src/store/authStore';
+import { useAuth } from '../../src/context/AuthContext';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../src/constants/theme';
 
 export default function RegisterScreen() {
@@ -19,18 +20,22 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm]   = useState('');
   const [localError, setLocalError] = useState('');
-  const { register, isLoading, error, clearError } = useAuthStore();
+  const { register, isLoading, error, clearError } = useAuth();
 
   async function handleRegister() {
     setLocalError('');
     if (!email.trim() || !password) return;
     if (password !== confirm) {
+      Alert.alert('Error', 'Las contraseñas no coinciden.');
       setLocalError('Las contraseñas no coinciden.');
       return;
     }
-    await register(email.trim(), password);
-    if (!useAuthStore.getState().error) {
-      router.replace('/');
+    const ok = await register(email.trim(), password);
+    if (ok) {
+      // app/_layout.tsx redirige automáticamente a (tabs) al detectar sesión
+      Alert.alert('Éxito', 'Cuenta creada correctamente.');
+    } else {
+      Alert.alert('Error', error ?? 'No se pudo crear la cuenta.');
     }
   }
 

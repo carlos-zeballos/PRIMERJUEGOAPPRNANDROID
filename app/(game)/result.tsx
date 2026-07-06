@@ -17,7 +17,7 @@ export default function ResultScreen() {
   useAudioTrack('FIN_PARTIDA');
 
   if (!session || session.phase !== 'GAME_OVER') {
-    router.replace('/');
+    router.replace('/(tabs)');
     return null;
   }
 
@@ -47,12 +47,15 @@ export default function ResultScreen() {
     : null;
 
   async function handleReplay() {
-    resetGame();
+    // No llamar resetGame() antes: pondría session en null síncronamente y
+    // dispararía la guarda de arriba (router.replace) mientras initGame
+    // todavía está en vuelo (seedWords/generateBoard son async), sacando
+    // al usuario de la pantalla antes de que la partida nueva esté lista.
     await initGame(session!.config);
     router.replace('/(game)/medium-view');
   }
   function handleNew()  { resetGame(); router.replace('/(game)/setup'); }
-  function handleHome() { resetGame(); router.replace('/'); }
+  function handleHome() { resetGame(); router.replace('/(tabs)'); }
 
   return (
     <ImageBackground source={FONDO} style={styles.bg} resizeMode="cover">

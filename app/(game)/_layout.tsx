@@ -8,7 +8,6 @@ export default function GameLayout() {
       <Stack.Screen name="medium-view" />
       <Stack.Screen name="board" />
       <Stack.Screen name="result" />
-      <Stack.Screen name="history" />
     </Stack>
   );
 }

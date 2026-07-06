@@ -221,13 +221,14 @@ export const useSoloGameStore = create<SoloGameState>((set, get) => ({
       ? session.consecutiveCorrect + 1
       : 0;
 
-    // Score incremental
-    const scorePartial = calculateSoloScore({
-      correctSelections:    result === 'correct' ? 1 : 0,
-      wrongSelections:      result === 'cursed' ? 1 : 0,
-      neutralSelections:    result === 'neutral' ? 1 : 0,
-      rivalSelections:      result === 'rival'   ? 1 : 0,
-      cursedSelected:       result === 'cursed',
+    // Score en vivo: se recalcula con el MISMO método agregado que finishGame
+    // (no se acumula un "score parcial" por selección) para que el HUD
+    // muestre siempre el puntaje real que se guardaría si la partida
+    // terminara en este momento.
+    const allTurnsSoFar = [...session.turns, updatedTurn];
+    const counts = aggregateSelectionCounts(allTurnsSoFar);
+    const liveScore = calculateSoloScore({
+      ...counts,
       totalOwnWords:        session.board.filter(c => c.owner === session.team).length,
       activeDurationMs:     _clock?.getActiveDurationMs() ?? 0,
       interpreterTimeLimitMs: null,
@@ -235,15 +236,11 @@ export const useSoloGameStore = create<SoloGameState>((set, get) => ({
       consecutiveCorrectStreak: newStreak,
     });
 
-    const completionBonus = updatedClue.status === 'completed' && currentClue.status !== 'completed'
-      ? Math.round(25 * updatedClue.originalCount * DIFFICULTY_CONFIGS[session.difficulty].scoreMultiplier)
-      : 0;
-
     const updatedSession: SoloGameSession = {
       ...session,
       board:          updatedBoard,
       currentTurn:    updatedTurn,
-      runningScore:   session.runningScore + scorePartial.finalScore + completionBonus,
+      runningScore:   liveScore.finalScore,
       consecutiveCorrect: newStreak,
       activeDurationMs:   _clock?.getActiveDurationMs() ?? 0,
     };
@@ -316,12 +313,33 @@ export const useSoloGameStore = create<SoloGameState>((set, get) => ({
       const board     = session.board;
       const team      = session.team;
 
-      const correctSelections = board.filter(c => c.owner === team && c.state === 'REVEALED').length;
-      const wrongSelections   = board.filter(c => c.owner !== team && c.state === 'REVEALED' && c.owner !== 'NEUTRAL' && c.owner !== 'CURSED').length;
-      const neutralSelections = board.filter(c => c.owner === 'NEUTRAL' && c.state === 'REVEALED').length;
-      const rivalSelections   = board.filter(c => c.owner !== team && c.owner !== 'NEUTRAL' && c.owner !== 'CURSED' && c.state === 'REVEALED').length;
-      const cursedSelected    = board.some(c => c.owner === 'CURSED' && c.state === 'REVEALED');
-      const totalOwnWords     = board.filter(c => c.owner === team).length;
+      const allTurns = [
+        ...(session.turns),
+        ...(session.currentTurn ? [session.currentTurn] : []),
+      ];
+
+      // Los conteos para el puntaje se derivan del HISTORIAL de selecciones,
+      // no del estado final del tablero: el tablero solo registra
+      // owner+REVEALED, que no distingue una carta propia revelada por
+      // acierto ('correct') de una revelada por error de pista ('wrong_own')
+      // — ambas quedan owner===team. Derivarlo del tablero absorbía los
+      // wrong_own dentro de correctSelections (sin penalizar el error) y
+      // además dejaba rivalSelections y wrongSelections con el mismo
+      // predicado (cartas rivales reveladas), contando ese error dos veces.
+      const {
+        correctSelections,
+        wrongSelections,
+        neutralSelections,
+        rivalSelections,
+        cursedSelected,
+      } = aggregateSelectionCounts(allTurns);
+      const totalOwnWords = board.filter(c => c.owner === team).length;
+
+      // Total de palabras propias reveladas (por acierto o por error de
+      // pista) — es lo que determina si el ritual se completó, y lo que se
+      // muestra como "almas liberadas"; no depende de si cada revelación
+      // coincidió con la pista vigente en ese momento.
+      const ownWordsRevealed = board.filter(c => c.owner === team && c.state === 'REVEALED').length;
 
       const score = calculateSoloScore({
         correctSelections,
@@ -337,13 +355,8 @@ export const useSoloGameStore = create<SoloGameState>((set, get) => ({
       });
 
       const status = cursedSelected ? 'lost_curse'
-        : correctSelections === totalOwnWords ? 'won'
+        : ownWordsRevealed === totalOwnWords ? 'won'
         : 'abandoned';
-
-      const allTurns = [
-        ...(session.turns),
-        ...(session.currentTurn ? [session.currentTurn] : []),
-      ];
 
       const maxStreak = allTurns.reduce((max, t) => {
         let streak = 0, best = 0;
@@ -373,7 +386,7 @@ export const useSoloGameStore = create<SoloGameState>((set, get) => ({
           rivalSelections,
           cursedSelected,
           totalOwnWords,
-          foundOwnWords:      correctSelections,
+          foundOwnWords:      ownWordsRevealed,
           maxCorrectStreak:   maxStreak,
           turnsPlayed:        allTurns.length,
         },
@@ -421,12 +434,17 @@ export const useSoloGameStore = create<SoloGameState>((set, get) => ({
         : null,
     };
 
-    // Recrear clock en estado pausado (esperando que el usuario reanude)
+    // Recrear el clock ya corriendo: la pantalla que llama a restoreSession
+    // está en foreground jugando activamente. Si se dejaba isPaused:true
+    // aquí, el reloj quedaba congelado para siempre salvo que el usuario
+    // llevara la app a segundo plano y volviera (único disparador de
+    // resumeGame() vía el listener de AppState) — el tiempo activo tras
+    // restaurar simplemente no se contaba.
     _clock = new MatchClock({
       startedAt:       hydratedSession.startedAt,
       activeDurationMs: hydratedSession.activeDurationMs,
       pausedDurationMs: 0,
-      isPaused:        true,
+      isPaused:        false,
       lastCheckpointAt: hydratedSession.lastCheckpointAt,
     });
 
@@ -436,7 +454,7 @@ export const useSoloGameStore = create<SoloGameState>((set, get) => ({
       session: hydratedSession,
       phase:       clue ? 'showing_clue' : 'selecting',
       currentClue: clue,
-      isPaused:    true,
+      isPaused:    false,
       lastResult:  null,
     });
 
@@ -485,6 +503,18 @@ function classifySelection(
     return clue.remainingTargetWordIds.includes(cell.id) ? 'correct' : 'wrong_own';
   }
   return 'rival';
+}
+
+/** Agrega los resultados de selección de todos los turnos (jugados + en curso). */
+function aggregateSelectionCounts(allTurns: SoloTurn[]) {
+  const allSelections = allTurns.flatMap(t => t.selections);
+  return {
+    correctSelections: allSelections.filter(s => s.result === 'correct').length,
+    wrongSelections:   allSelections.filter(s => s.result === 'wrong_own').length,
+    neutralSelections: allSelections.filter(s => s.result === 'neutral').length,
+    rivalSelections:   allSelections.filter(s => s.result === 'rival').length,
+    cursedSelected:    allSelections.some(s => s.result === 'cursed'),
+  };
 }
 
 function buildTurn(session: SoloGameSession, clue: ActiveMediumClue): SoloTurn {

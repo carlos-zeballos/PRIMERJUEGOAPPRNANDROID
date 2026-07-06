@@ -12,10 +12,11 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { router } from 'expo-router';
 import { SafeAreaWrapper } from '../../src/components/layout/SafeAreaWrapper';
 import { useSoloGameStore } from '../../src/store/soloGameStore';
-import { useAuthStore } from '../../src/store/authStore';
+import { useAuth } from '../../src/context/AuthContext';
 import { SoloDifficultyId } from '../../src/domain/solo/types/solo.types';
 import {
   DIFFICULTY_CONFIGS,
@@ -34,7 +35,7 @@ const TEAM_COLORS: Record<TeamColor, string> = {
 };
 
 export default function DifficultyScreen() {
-  const { user } = useAuthStore();
+  const { user } = useAuth();
   const { stats, loadStats, startGame, phase, error } = useSoloGameStore();
 
   // Equipo elegido (se podría hacer una pantalla previa, aquí lo pedimos inline)
@@ -85,26 +86,17 @@ export default function DifficultyScreen() {
           <Text style={styles.title}>ELIGE TU{'\n'}DIFICULTAD</Text>
 
           {/* Selección de equipo */}
-          <View style={styles.teamRow}>
-            {(['BLUE', 'RED'] as TeamColor[]).map(team => (
-              <Pressable
-                key={team}
-                onPress={() => setSelectedTeam(team)}
-                style={[
-                  styles.teamBtn,
-                  selectedTeam === team && {
-                    borderColor: TEAM_COLORS[team],
-                    backgroundColor: TEAM_COLORS[team] + '22',
-                  },
-                ]}
-                accessibilityLabel={`Equipo ${team === 'BLUE' ? 'Azul' : 'Rojo'}`}
-                accessibilityRole="button"
-              >
-                <Text style={[styles.teamBtnText, { color: selectedTeam === team ? TEAM_COLORS[team] : COLORS.textSecondary }]}>
-                  {team === 'BLUE' ? 'EQUIPO AZUL' : 'EQUIPO ROJO'}
-                </Text>
-              </Pressable>
-            ))}
+          <View style={styles.teamPickerWrap}>
+            <Text style={styles.teamPickerLabel}>EQUIPO</Text>
+            <Picker
+              selectedValue={selectedTeam}
+              onValueChange={(itemValue) => setSelectedTeam(itemValue as TeamColor)}
+              style={styles.teamPicker}
+              dropdownIconColor={COLORS.gold}
+            >
+              <Picker.Item label="Equipo Azul" value="BLUE" color={TEAM_COLORS.BLUE} />
+              <Picker.Item label="Equipo Rojo" value="RED" color={TEAM_COLORS.RED} />
+            </Picker>
           </View>
 
           {/* Lista de dificultades */}
@@ -211,24 +203,23 @@ const styles = StyleSheet.create({
     textShadowRadius: 8,
   },
 
-  teamRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 28,
-  },
-  teamBtn: {
-    flex: 1,
+  teamPickerWrap: {
     borderWidth: 1.5,
     borderColor: 'rgba(200,169,107,0.35)',
     borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
     backgroundColor: 'rgba(8,6,14,0.65)',
+    marginBottom: 28,
+    paddingHorizontal: 12,
+    paddingTop: 8,
   },
-  teamBtnText: {
+  teamPickerLabel: {
     fontFamily: 'Cinzel-Bold',
     fontSize: 10,
     letterSpacing: 2,
+    color: 'rgba(200,169,107,0.60)',
+  },
+  teamPicker: {
+    color: COLORS.textPrimary,
   },
 
   list: { gap: 12 },

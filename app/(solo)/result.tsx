@@ -11,7 +11,7 @@ import {
 import { router } from 'expo-router';
 import { SafeAreaWrapper } from '../../src/components/layout/SafeAreaWrapper';
 import { useSoloGameStore } from '../../src/store/soloGameStore';
-import { useAuthStore } from '../../src/store/authStore';
+import { useAuth } from '../../src/context/AuthContext';
 import { COLORS, SPACING } from '../../src/constants/theme';
 import { CompletedSoloMatch } from '../../src/domain/solo/types/solo.types';
 import { getMatchHistory } from '../../src/services/database/SoloRepository';
@@ -22,7 +22,7 @@ const WIN_RED  = require('../../assets/images/azulperido.png');
 const CURSED   = require('../../assets/images/palnmalfin.png');
 
 export default function SoloResultScreen() {
-  const { user } = useAuthStore();
+  const { user } = useAuth();
   const { session, currentClue, stats, loadStats, reset } = useSoloGameStore();
   const [match, setMatch] = useState<CompletedSoloMatch | null>(null);
 
@@ -42,7 +42,7 @@ export default function SoloResultScreen() {
 
   function handleHome() {
     reset();
-    router.replace('/');
+    router.replace('/(tabs)');
   }
 
   function handleProgress() {

@@ -9,7 +9,7 @@ import {
 import { router } from 'expo-router';
 import { SafeAreaWrapper } from '../../src/components/layout/SafeAreaWrapper';
 import { useSoloGameStore } from '../../src/store/soloGameStore';
-import { useAuthStore } from '../../src/store/authStore';
+import { useAuth } from '../../src/context/AuthContext';
 import { DIFFICULTY_CONFIGS, DIFFICULTY_ORDER } from '../../src/domain/solo/config/difficulty.config';
 import { COLORS, SPACING } from '../../src/constants/theme';
 
@@ -23,7 +23,7 @@ function fmt(ms: number): string {
 }
 
 export default function SoloProgressScreen() {
-  const { user } = useAuthStore();
+  const { user } = useAuth();
   const { stats, loadStats } = useSoloGameStore();
 
   useEffect(() => {

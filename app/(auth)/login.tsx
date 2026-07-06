@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -11,23 +12,22 @@ import {
 import { router } from 'expo-router';
 import { SafeAreaWrapper } from '../../src/components/layout/SafeAreaWrapper';
 import { Button } from '../../src/components/ui/Button';
-import { useAuthStore } from '../../src/store/authStore';
+import { BtnLoginGoogle } from '../../components/BtnLoginGoogle';
+import { useAuth } from '../../src/context/AuthContext';
 import { BORDER_RADIUS, COLORS, SPACING, TYPOGRAPHY } from '../../src/constants/theme';
 
 export default function LoginScreen() {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
-  const { login, loginWithGoogle, isLoading, error, clearError } = useAuthStore();
+  const { login, isLoading, error, clearError } = useAuth();
 
   async function handleLogin() {
     if (!email.trim() || !password) return;
-    await login(email.trim(), password);
-    if (!useAuthStore.getState().error) router.replace('/');
-  }
-
-  async function handleGoogle() {
-    await loginWithGoogle();
-    if (!useAuthStore.getState().error) router.replace('/');
+    const ok = await login(email.trim(), password);
+    // Si tuvo éxito, app/_layout.tsx redirige automáticamente a (tabs)
+    if (!ok) {
+      Alert.alert('Error', error ?? 'No se pudo iniciar sesión.');
+    }
   }
 
   return (
@@ -83,11 +83,8 @@ export default function LoginScreen() {
             </View>
             <View style={styles.gap} />
 
-            <Button
-              label="CONTINUAR CON GOOGLE"
-              variant="secondary"
-              onPress={handleGoogle}
-              loading={isLoading}
+            <BtnLoginGoogle
+              onError={(mensaje) => Alert.alert('Error', mensaje)}
             />
             <View style={styles.gap} />
             <Button

@@ -8,7 +8,7 @@
  *   completed      → navega automáticamente a result.tsx
  */
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { AppState, AppStateStatus, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaWrapper } from '../../src/components/layout/SafeAreaWrapper';
@@ -16,7 +16,7 @@ import { GameBoard } from '../../src/components/game/GameBoard';
 import { ScoreTracker } from '../../src/components/game/ScoreTracker';
 import { SelectionResultOverlay } from '../../src/components/game/SelectionResultOverlay';
 import { useSoloGameStore } from '../../src/store/soloGameStore';
-import { useAuthStore } from '../../src/store/authStore';
+import { useAuth } from '../../src/context/AuthContext';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../src/constants/theme';
 import { getSelectionAlertType } from '../../src/assets/selectionAlertAssets';
 import { useAudioTrack } from '../../src/hooks/useAudioTrack';
@@ -24,7 +24,7 @@ import { useAudioTrack } from '../../src/hooks/useAudioTrack';
 const FONDO = require('../../assets/images/fondo.png');
 
 export default function SoloGameScreen() {
-  const { user } = useAuthStore();
+  const { user } = useAuth();
   const {
     session, phase, currentClue, lastResult,
     isPaused, selectCard, continueTurn, pauseGame, resumeGame,
@@ -32,6 +32,12 @@ export default function SoloGameScreen() {
   } = useSoloGameStore();
 
   useAudioTrack('TENSION');
+
+  // Evita que la guarda de "phase === 'idle'" de abajo gane la carrera a la
+  // restauración de sesión: mientras restoreSession sigue en vuelo, phase
+  // todavía vale 'idle' (valor inicial del store) y esa guarda mandaría al
+  // usuario a difficulty aunque sí exista una sesión recuperable.
+  const [isRestoring, setIsRestoring] = useState(!session);
 
   // Guardar sesión y pausar cuando la app va al fondo
   useEffect(() => {
@@ -47,11 +53,12 @@ export default function SoloGameScreen() {
 
   // Restaurar sesión si no hay ninguna activa
   useEffect(() => {
-    if (!session && user) {
-      restoreSession(user.uid).then(restored => {
-        if (!restored) router.replace('/(solo)/difficulty');
-      });
-    }
+    if (session) { setIsRestoring(false); return; }
+    if (!user) { setIsRestoring(false); return; }
+    restoreSession(user.uid).then(restored => {
+      setIsRestoring(false);
+      if (!restored) router.replace('/(solo)/difficulty');
+    });
   }, []);
 
   // Navegar a resultado cuando el juego termina
@@ -61,12 +68,12 @@ export default function SoloGameScreen() {
     }
   }, [phase]);
 
-  // Si no hay sesión y no estamos preparando, volver
+  // Si no hay sesión y no estamos preparando ni restaurando, volver
   useEffect(() => {
-    if (phase === 'idle') {
+    if (!isRestoring && phase === 'idle') {
       router.replace('/(solo)/difficulty');
     }
-  }, [phase]);
+  }, [phase, isRestoring]);
 
   const handleSelectCard = useCallback(async (position: number) => {
     if (!session) return;

@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { GameConfig, GameSession, GameState, TeamColor, Whisper } from '../types/game.types';
 import { generateBoard } from '../services/game/BoardGenerator';
 import { createNewTurn, processCellSelection, passVoluntarily } from '../services/game/TurnManager';
-import { saveGameSession } from '../services/database/GameRepository';
-import { syncGameSession } from '../services/firebase/firestore';
+import { saveGameSession, markGameSynced } from '../services/database/GameRepository';
+import { registrarPartida } from '../services/firebase/realtimeGames';
 import { getCurrentUser } from '../services/firebase/auth';
 import { seedWords } from '../../database/migrations/002_seed_words';
 import { generateId } from '../utils/uuid.utils';
@@ -15,15 +15,20 @@ function getTeamTotals(firstTeam: TeamColor) {
 }
 
 function persistSession(session: GameSession) {
-  // SQLite — siempre (offline-first)
-  saveGameSession(session).catch(() => {});
+  const user = getCurrentUser();
 
-  // Firestore — solo si la partida terminó y hay usuario autenticado
-  if (session.phase === 'GAME_OVER') {
-    const user = getCurrentUser();
-    if (user) {
-      syncGameSession(session, user.uid).catch(() => {});
-    }
+  // SQLite — siempre (offline-first)
+  saveGameSession(session, user?.uid).catch(() => {});
+
+  // Realtime Database — solo si la partida terminó y hay usuario autenticado.
+  // Si falla (sin conexión, etc.) queda con synced_at=NULL en SQLite y
+  // game-sync.service.ts la reintentará más tarde — por eso hay que marcar
+  // synced_at aquí también en el camino feliz, o el reintento la duplicaría
+  // (cada registrarPartida hace un push() nuevo en Realtime Database).
+  if (session.phase === 'GAME_OVER' && user) {
+    registrarPartida(user.uid, session)
+      .then(() => markGameSynced(session.id, Date.now()))
+      .catch(() => {});
   }
 }
 
@@ -107,14 +112,32 @@ export const useGameStore = create<GameState>((set, get) => ({
     return attemptResult;
   },
 
-  passVoluntarily: () => {
+  passVoluntarily: (force = false) => {
     const { session } = get();
     if (!session || session.phase !== 'INTERPRETER_TURN') return;
 
     const currentTurn = session.turns[session.turns.length - 1];
-    if (!currentTurn || currentTurn.attempts.length === 0) return;
+    // El botón "TERMINAR MI TURNO" solo se habilita tras al menos un intento;
+    // un timeout (force=true) debe cerrar el turno igual aunque el equipo
+    // no haya llegado a elegir ninguna carta.
+    if (!currentTurn || (!force && currentTurn.attempts.length === 0)) return;
 
     const updatedSession = passVoluntarily(session);
+    persistSession(updatedSession);
+    set({ session: updatedSession });
+  },
+
+  skipMediumTurn: () => {
+    const { session } = get();
+    if (!session || session.phase !== 'MEDIUM_TURN') return;
+
+    // El Medium no dio una pista a tiempo: se pierde el turno y pasa
+    // directamente al Medium del equipo rival (no existe un Turn sin
+    // whisper en el modelo de datos, así que no se registra intento).
+    const updatedSession: GameSession = {
+      ...session,
+      activeTeam: session.activeTeam === 'BLUE' ? 'RED' : 'BLUE',
+    };
     persistSession(updatedSession);
     set({ session: updatedSession });
   },

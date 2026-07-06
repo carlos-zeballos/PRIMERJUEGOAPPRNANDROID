@@ -19,6 +19,7 @@ import { ScoreTracker } from '../../src/components/game/ScoreTracker';
 import { SelectionResultOverlay } from '../../src/components/game/SelectionResultOverlay';
 import { useGameStore } from '../../src/store/gameStore';
 import { useAudioTrack } from '../../src/hooks/useAudioTrack';
+import { useTurnCountdown } from '../../src/hooks/useTurnCountdown';
 import { GAME_ASSETS } from '../../src/constants/assets';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../src/constants/theme';
 import { getSelectionAlertType, SelectionAlertType } from '../../src/assets/selectionAlertAssets';
@@ -58,9 +59,19 @@ export default function BoardScreen() {
     preloadBoardAssets();
   }, []);
 
+  // Límite de tiempo del turno de intérpretes. Nota: por simplicidad no se
+  // pausa mientras se muestra SelectionResultOverlay (alertVisible) — el
+  // overlay es breve y passVoluntarily ya es un no-op si la fase cambió.
+  const currentTurnId = session?.turns[session.turns.length - 1]?.id ?? 'none';
+  const remainingSeconds = useTurnCountdown(
+    session?.phase === 'INTERPRETER_TURN' ? session.config.interpreterTimeSeconds : null,
+    currentTurnId,
+    () => passVoluntarily(true),
+  );
+
   // ── Navegación según fase ───────────────────────────────────────────────
   useEffect(() => {
-    if (!session) { router.replace('/'); return; }
+    if (!session) { router.replace('/(tabs)'); return; }
 
     // Si la alerta está visible, NO navegar todavía — esperar a cerrarla
     if (alertVisible) return;
@@ -158,6 +169,11 @@ export default function BoardScreen() {
         <Text style={[styles.turnLabel, { color: activeColor }]}>
           🎯 INTÉRPRETES DEL EQUIPO {teamLabel} — TURNO ACTIVO
         </Text>
+        {remainingSeconds !== null && (
+          <Text style={[styles.countdown, remainingSeconds <= 10 && styles.countdownUrgent]}>
+            ⏱ {remainingSeconds}s
+          </Text>
+        )}
         <WhisperDisplay
           whisper={currentTurn?.whisper}
           attemptsLeft={attemptsLeft}
@@ -184,7 +200,7 @@ export default function BoardScreen() {
           <Button
             label="TERMINAR MI TURNO"
             variant="ghost"
-            onPress={passVoluntarily}
+            onPress={() => passVoluntarily()}
             style={styles.passButtonStyle}
           />
         </View>
@@ -219,6 +235,16 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.9)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
+  },
+  countdown: {
+    fontFamily: 'Cinzel-Bold',
+    fontSize: 14,
+    color: 'rgba(200,169,107,0.85)',
+    marginBottom: 4,
+    letterSpacing: 1.5,
+  },
+  countdownUrgent: {
+    color: COLORS.error,
   },
   attemptsHint: {
     fontFamily: 'Inter-Regular',

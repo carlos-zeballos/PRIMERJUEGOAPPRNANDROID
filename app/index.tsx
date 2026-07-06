@@ -5,34 +5,29 @@
  *   Fila 1: INICIAR SESIÓN
  *   Fila 2: CREAR CUENTA | COMO JUGAR
  *
- * HOME 2 (autenticado):
- *   Fila 1: JUGAR CAMPAÑA
- *   Fila 2: JUGAR MODO LOCAL PRESENCIAL
- *   Fila 3: CERRAR SESIÓN | COMO JUGAR
+ * Si el usuario ya está autenticado, redirige al menú de pestañas (tabs).
  */
 
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
+  Alert,
   ImageBackground,
   Modal,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { SafeAreaWrapper } from '../src/components/layout/SafeAreaWrapper';
-import { useAuthStore } from '../src/store/authStore';
+import { BtnLoginGoogle } from '../components/BtnLoginGoogle';
+import { HowToPlayModal } from '../src/components/HowToPlayModal';
+import { useAuth } from '../src/context/AuthContext';
 import { useAudioTrack } from '../src/hooks/useAudioTrack';
 
-const BG          = require('../assets/images/susurros_home_bg.png');
-const HOW_TO_PLAY = require('../assets/images/como_jugar.jpg');
+const BG = require('../assets/images/susurros_home_bg.png');
 
 const G = {
   gold:  '#C4963A',
@@ -40,74 +35,21 @@ const G = {
   bg:    '#07060E',
 } as const;
 
-// ─── Cómo Jugar con zoom ──────────────────────────────────────────────────────
-
-function HowToPlayModal({ onClose }: { onClose: () => void }) {
-  const { width, height } = useWindowDimensions();
-  const landscape = width > height;
-  const imgW = landscape ? Math.min(width * 0.90, 900) : Math.min(width * 0.96, 600);
-  const imgH = imgW * (559 / 1024);
-
-  const scale      = useSharedValue(1);
-  const savedScale = useSharedValue(1);
-
-  const pinch = Gesture.Pinch()
-    .onUpdate(e => { scale.value = Math.min(Math.max(savedScale.value * e.scale, 1), 4); })
-    .onEnd(() => { savedScale.value = scale.value; });
-
-  const dblTap = Gesture.Tap()
-    .numberOfTaps(2)
-    .onEnd(() => { scale.value = withTiming(1, { duration: 250 }); savedScale.value = 1; });
-
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-
-  return (
-    <GestureHandlerRootView style={hw.overlay}>
-      <View style={hw.header}>
-        <Text style={hw.title}>CÓMO JUGAR</Text>
-        <Text style={hw.hint}>
-          {landscape
-            ? 'Pellizca para zoom · Doble toque para restablecer'
-            : 'Gira el teléfono · Pellizca para hacer zoom'}
-        </Text>
-      </View>
-      <GestureDetector gesture={Gesture.Simultaneous(pinch, dblTap)}>
-        <Animated.View style={[{ width: imgW, height: imgH }, animStyle]}>
-          <Image source={HOW_TO_PLAY} resizeMode="contain" style={{ width: '100%', height: '100%' }} />
-        </Animated.View>
-      </GestureDetector>
-      <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" hitSlop={12} onPress={onClose} style={hw.closeBtn}>
-        <Text style={hw.closeText}>CERRAR</Text>
-      </Pressable>
-    </GestureHandlerRootView>
-  );
-}
-
-const hw = StyleSheet.create({
-  overlay:  { flex:1, backgroundColor:'rgba(3,3,8,0.97)', alignItems:'center', justifyContent:'center', padding:8, gap:16 },
-  header:   { alignItems:'center', gap:4 },
-  title:    { fontFamily:'Cinzel-Bold', fontSize:18, letterSpacing:3, color:'rgba(226,184,90,0.95)' },
-  hint:     { fontFamily:'Inter-Regular', fontSize:11, color:'rgba(200,180,140,0.60)', textAlign:'center' },
-  closeBtn: { borderWidth:1, borderColor:'rgba(200,169,107,0.55)', paddingHorizontal:28, paddingVertical:10, borderRadius:8, backgroundColor:'rgba(10,8,18,0.72)' },
-  closeText:{ fontFamily:'Cinzel-Bold', fontSize:11, letterSpacing:2, color:'rgba(226,184,90,0.90)' },
-});
-
 // ─── Panel de inicio de sesión (inline) ───────────────────────────────────────
 
 function LoginPanel({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const { login, loginWithGoogle, isLoading, error, clearError } = useAuthStore();
+  const { login, isLoading, error, clearError } = useAuth();
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
 
   async function handleLogin() {
     if (!email.trim() || !password) return;
-    await login(email.trim(), password);
-    if (!useAuthStore.getState().error) onSuccess();
-  }
-
-  async function handleGoogle() {
-    await loginWithGoogle();
-    if (!useAuthStore.getState().error) onSuccess();
+    const ok = await login(email.trim(), password);
+    if (ok) {
+      onSuccess();
+    } else {
+      Alert.alert('Error', error ?? 'No se pudo iniciar sesión.');
+    }
   }
 
   return (
@@ -151,14 +93,10 @@ function LoginPanel({ onClose, onSuccess }: { onClose: () => void; onSuccess: ()
         <View style={panel.sepLine} /><Text style={panel.sepText}>O</Text><View style={panel.sepLine} />
       </View>
 
-      <Pressable
-        onPress={handleGoogle}
-        disabled={isLoading}
-        style={({ pressed }) => [panel.btnSecondary, pressed && panel.pressed]}
-        accessibilityRole="button" accessibilityLabel="Continuar con Google"
-      >
-        <Text style={panel.btnSecondaryText}>CONTINUAR CON GOOGLE</Text>
-      </Pressable>
+      <BtnLoginGoogle
+        onSuccess={onSuccess}
+        onError={(mensaje) => Alert.alert('Error', mensaje)}
+      />
 
       <Pressable onPress={onClose} style={({ pressed }) => [panel.btnGhost, pressed && panel.pressed]} accessibilityRole="button">
         <Text style={panel.btnGhostText}>CANCELAR</Text>
@@ -189,7 +127,7 @@ const panel = StyleSheet.create({
 // ─── Pantalla principal ───────────────────────────────────────────────────────
 
 export default function HomeScreen() {
-  const { user, logout, continueAsGuest } = useAuthStore();
+  const { user } = useAuth();
   const [howToVisible,   setHowToVisible]   = useState(false);
   const [loginVisible,   setLoginVisible]   = useState(false);
 
@@ -197,14 +135,13 @@ export default function HomeScreen() {
 
   useAudioTrack('PRINCIPAL');
 
-  async function handleGuest() {
-    await continueAsGuest();
-  }
-
   function handleLoginSuccess() {
     setLoginVisible(false);
-    // El observer de auth actualizará isAuthenticated automáticamente
+    // La redirección a (tabs) la maneja app/_layout.tsx (única autoridad de navegación)
   }
+
+  // Evita el flash del formulario de login mientras app/_layout.tsx redirige
+  if (isAuthenticated) return null;
 
   return (
     <SafeAreaWrapper style={styles.safe}>
@@ -218,37 +155,14 @@ export default function HomeScreen() {
             <View style={styles.divLine} />
           </View>
 
-          {!isAuthenticated ? (
-            /* ══ HOME 1 — Sin sesión ══ */
-            <>
-              {/* Fila 1: INICIAR SESIÓN */}
-              <Btn label="INICIAR SESIÓN"    onPress={() => setLoginVisible(true)}          primary />
-              <View style={{ height: 10 }} />
-              {/* Fila 2: CREAR CUENTA | COMO JUGAR */}
-              <View style={styles.row}>
-                <Btn label="CREAR CUENTA"   onPress={() => router.push('/(auth)/register')} secondary flex />
-                <Btn label="COMO JUGAR"     onPress={() => setHowToVisible(true)}           secondary flex />
-              </View>
-              <View style={{ height: 10 }} />
-              {/* Acceso rápido como invitado */}
-              <Btn label="Entrar como invitado" onPress={handleGuest} ghost />
-            </>
-          ) : (
-            /* ══ HOME 2 — Con sesión ══ */
-            <>
-              {/* Fila 1: JUGAR CAMPAÑA */}
-              <Btn label="JUGAR CAMPAÑA"             onPress={() => router.push('/(solo)/difficulty')}  primary />
-              <View style={{ height: 10 }} />
-              {/* Fila 2: JUGAR MODO LOCAL PRESENCIAL */}
-              <Btn label="JUGAR MODO LOCAL PRESENCIAL" onPress={() => router.push('/(game)/setup')}      secondary />
-              <View style={{ height: 10 }} />
-              {/* Fila 3: CERRAR SESIÓN | COMO JUGAR */}
-              <View style={styles.row}>
-                <Btn label="CERRAR SESIÓN" onPress={logout}                          secondary flex />
-                <Btn label="COMO JUGAR"   onPress={() => setHowToVisible(true)}      secondary flex />
-              </View>
-            </>
-          )}
+          {/* Fila 1: INICIAR SESIÓN */}
+          <Btn label="INICIAR SESIÓN"    onPress={() => setLoginVisible(true)}          primary />
+          <View style={{ height: 10 }} />
+          {/* Fila 2: CREAR CUENTA | COMO JUGAR */}
+          <View style={styles.row}>
+            <Btn label="CREAR CUENTA"   onPress={() => router.push('/(auth)/register')} secondary flex />
+            <Btn label="COMO JUGAR"     onPress={() => setHowToVisible(true)}           secondary flex />
+          </View>
         </View>
       </ImageBackground>
 

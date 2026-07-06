@@ -96,6 +96,7 @@ export interface GameState {
   initGame: (config: GameConfig) => Promise<void>;
   submitWhisper: (word: string, number: number | 'INFINITE') => void;
   selectCell: (position: number) => TurnAttempt['result'] | 'IGNORED' | undefined;
-  passVoluntarily: () => void;
+  passVoluntarily: (force?: boolean) => void;
+  skipMediumTurn: () => void;
   resetGame: () => void;
 }

@@ -33,7 +33,8 @@ export function validateWhisper(
 }
 
 export function validateWhisperNumber(value: string): boolean {
-  if (value === '∞' || value === 'INFINITE') return true;
-  const n = parseInt(value, 10);
+  const trimmed = value.trim();
+  if (trimmed === '∞' || trimmed.toUpperCase() === 'INFINITE') return true;
+  const n = parseInt(trimmed, 10);
   return !isNaN(n) && n >= 0 && n <= 9;
 }

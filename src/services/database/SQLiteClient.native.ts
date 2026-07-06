@@ -6,6 +6,7 @@ let _db: SQLite.SQLiteDatabase | null = null;
 async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   await runMigrationV1(db);
   await runMigrationV2(db);
+  await runMigrationV3(db);
 }
 
 async function runMigrationV1(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -24,6 +25,7 @@ async function runMigrationV1(db: SQLite.SQLiteDatabase): Promise<void> {
 
     CREATE TABLE IF NOT EXISTS game_sessions (
       id              TEXT PRIMARY KEY,
+      uid             TEXT,
       config_json     TEXT NOT NULL,
       board_json      TEXT NOT NULL,
       turns_json      TEXT NOT NULL,
@@ -92,6 +94,18 @@ async function runMigrationV2(db: SQLite.SQLiteDatabase): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_solo_matches_created     ON solo_matches(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_solo_active_uid          ON solo_active_session(uid);
   `);
+}
+
+async function runMigrationV3(db: SQLite.SQLiteDatabase): Promise<void> {
+  // game_sessions se creó sin columna de usuario; sqlite no soporta
+  // "ADD COLUMN IF NOT EXISTS", así que se ignora el error si ya existe
+  // (instalación fresca donde runMigrationV1 ya la incluye — ver abajo).
+  try {
+    await db.execAsync('ALTER TABLE game_sessions ADD COLUMN uid TEXT;');
+  } catch {
+    // La columna ya existe — no-op.
+  }
+  await db.execAsync('CREATE INDEX IF NOT EXISTS idx_sessions_uid ON game_sessions(uid);');
 }
 
 export async function getDatabase(): Promise<DatabaseClient> {
