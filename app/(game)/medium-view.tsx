@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ImageBackground, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaWrapper } from '../../src/components/layout/SafeAreaWrapper';
@@ -45,13 +45,27 @@ export default function MediumViewScreen() {
     () => {
       setModalVisible(false);
       skipMediumTurn();
+      // skipMediumTurn() cambia el equipo activo pero deja phase en
+      // MEDIUM_TURN (no hay Turn sin whisper) — sin este replace, esta misma
+      // pantalla seguiría montada y revelaría de inmediato el tablero secreto
+      // del equipo rival a quien tenga el dispositivo en mano en ese instante.
+      router.replace('/(game)/handoff');
     },
   );
 
-  if (!session) { router.replace('/(tabs)'); return null; }
-  // Evita reenviar una pista si se volvió a esta pantalla (back/gesto) tras
-  // que la fase ya avanzó — antes esto quedaba como un no-op silencioso.
-  if (session.phase !== 'MEDIUM_TURN') { router.replace('/(game)/board'); return null; }
+  // La navegación es un efecto secundario y debe correr en un useEffect,
+  // nunca en el cuerpo del render: llamar a router.replace() sincrónicamente
+  // durante el render dispara "Cannot update a component (NavigationContainerInner)
+  // while rendering a different component (MediumViewScreen)", porque
+  // expo-router actualiza el estado del NavigationContainer al navegar.
+  useEffect(() => {
+    if (!session) { router.replace('/(tabs)'); return; }
+    // Evita reenviar una pista si se volvió a esta pantalla (back/gesto) tras
+    // que la fase ya avanzó — antes esto quedaba como un no-op silencioso.
+    if (session.phase !== 'MEDIUM_TURN') { router.replace('/(game)/board'); }
+  }, [session]);
+
+  if (!session || session.phase !== 'MEDIUM_TURN') return null;
 
   const { board, activeTeam } = session;
   const teamLabel = activeTeam === 'BLUE' ? 'AZUL' : 'ROJO';

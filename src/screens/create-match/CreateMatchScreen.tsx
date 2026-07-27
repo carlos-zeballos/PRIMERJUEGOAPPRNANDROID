@@ -156,7 +156,9 @@ export function CreateMatchScreen() {
   async function handleStart() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     await initGame(toGameConfig(state));
-    if (useGameStore.getState().session) router.push('/(game)/medium-view');
+    // Nunca ir directo a medium-view: revela el tablero secreto completo y
+    // quien configuró la partida podría no ser el Medium de este turno.
+    if (useGameStore.getState().session) router.push('/(game)/handoff');
   }
 
   function handleLayout(event: LayoutChangeEvent) {

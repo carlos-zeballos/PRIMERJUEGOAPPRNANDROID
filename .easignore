@@ -1,0 +1,12 @@
+node_modules
+.git
+dist
+.expo
+.expo-export-*
+.solo-engine-test
+visual-qa-output
+create_match_assets_inspect
+screenshots_fase1g
+Sustentacion_Codigo_ReactNative_Firebase.docx
+Sustentacion_Codigo_ReactNative_Firebase.pdf
+*.orig.*

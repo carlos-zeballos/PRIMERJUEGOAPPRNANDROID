@@ -84,7 +84,10 @@ export default function BoardScreen() {
     if (session.phase === 'GAME_OVER') {
       routeTimeout.current = setTimeout(() => router.replace('/(game)/result'), 0);
     } else if (session.phase === 'MEDIUM_TURN') {
-      routeTimeout.current = setTimeout(() => router.replace('/(game)/medium-view'), 0);
+      // Pasa primero por la pantalla de privacidad: quien tiene el dispositivo
+      // en este instante fue Intérprete y no debe ver el tablero secreto que
+      // medium-view revela con revealAll.
+      routeTimeout.current = setTimeout(() => router.replace('/(game)/handoff'), 0);
     }
 
     return () => {

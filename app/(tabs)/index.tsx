@@ -33,6 +33,8 @@ export default function InicioScreen() {
           <View style={{ height: 10 }} />
           <Btn label="JUGAR MODO LOCAL PRESENCIAL" onPress={() => router.push('/(game)/setup')} secondary />
           <View style={{ height: 10 }} />
+          <Btn label="ATENCIÓN AL CLIENTE" onPress={() => router.push('/chat')} secondary />
+          <View style={{ height: 10 }} />
           <Btn label="COMO JUGAR" onPress={() => setHowToVisible(true)} ghost />
         </View>
       </ImageBackground>

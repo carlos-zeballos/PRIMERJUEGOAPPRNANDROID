@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Image, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaWrapper } from '../../src/components/layout/SafeAreaWrapper';
@@ -16,10 +16,16 @@ export default function ResultScreen() {
   const { session, resetGame, initGame } = useGameStore();
   useAudioTrack('FIN_PARTIDA');
 
-  if (!session || session.phase !== 'GAME_OVER') {
-    router.replace('/(tabs)');
-    return null;
-  }
+  // La navegación es un efecto secundario: debe correr en un useEffect, no
+  // sincrónicamente durante el render, o dispara "Cannot update a component
+  // (NavigationContainerInner) while rendering a different component".
+  useEffect(() => {
+    if (!session || session.phase !== 'GAME_OVER') {
+      router.replace('/(tabs)');
+    }
+  }, [session]);
+
+  if (!session || session.phase !== 'GAME_OVER') return null;
 
   const isBlueWin   = session.result === 'BLUE_WIN';
   const cursedCause = session.turns.some((t) =>

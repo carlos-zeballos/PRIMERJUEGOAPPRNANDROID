@@ -13,6 +13,9 @@ import { syncPendingGames } from '../src/services/sync/game-sync.service';
 import '../src/services/firebase/config';
 
 const PROTECTED_GROUPS = ['(tabs)', '(game)', '(solo)'];
+// Rutas fuera de un grupo que también requieren sesión iniciada
+// (no deben rebotar a "/(tabs)" ni a "/").
+const AUTH_ALLOWED_ROOT_ROUTES = ['chat'];
 
 export default function RootLayout() {
   return (
@@ -50,10 +53,11 @@ function RootLayoutInner() {
 
     const currentGroup = segments[0];
     const inProtectedGroup = PROTECTED_GROUPS.includes(currentGroup as string);
+    const inAuthAllowedRoot = AUTH_ALLOWED_ROOT_ROUTES.includes(currentGroup as string);
 
-    if (!user && inProtectedGroup) {
+    if (!user && (inProtectedGroup || inAuthAllowedRoot)) {
       router.replace('/');
-    } else if (user && !inProtectedGroup) {
+    } else if (user && !inProtectedGroup && !inAuthAllowedRoot) {
       router.replace('/(tabs)');
     }
   }, [isInitialized, user, segments]);
@@ -82,6 +86,7 @@ function RootLayoutInner() {
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.void } }}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="chat" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(game)" />

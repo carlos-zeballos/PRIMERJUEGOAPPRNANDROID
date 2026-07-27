@@ -22,8 +22,15 @@
       "minSdkVersion": 26,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.MODIFY_AUDIO_SETTINGS"
-      ]
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCmSYSbZ_3cFWjVwkeRT_arc7L_Ic7ReUI"
+        }
+      }
     },
     "web": {
       "bundler": "metro",
@@ -47,6 +54,12 @@
         "expo-av",
         {
           "microphonePermission": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "SUSURROS usa tu ubicación para mostrarte en el mapa de la tienda."
         }
       ]
     ],
