@@ -73,6 +73,13 @@ export default function MediumViewScreen() {
   const teamBorderColor = activeTeam === 'BLUE'
     ? 'rgba(138,200,255,0.30)'
     : 'rgba(255,128,128,0.30)';
+  const usedWords = board
+    .filter((cell) => cell.state === 'REVEALED')
+    .map((cell) => cell.word.toUpperCase());
+  const previewWords = usedWords.slice(0, 8);
+  const remainingUsedWords = usedWords.length > previewWords.length
+    ? usedWords.length - previewWords.length
+    : 0;
 
   function handleSubmit() {
     setValidationError('');
@@ -112,6 +119,32 @@ export default function MediumViewScreen() {
             </Text>
           )}
         </View>
+
+        {/* ── Seguimiento visual de palabras ya elegidas ── */}
+        {usedWords.length > 0 ? (
+          <View style={styles.usedWordsPanel}>
+            <View style={styles.usedWordsHeader}>
+              <Text style={styles.usedWordsTitle}>PALABRAS YA ELEGIDAS</Text>
+              <Text style={styles.usedWordsHint}>Evita repetirlas en futuras pistas</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.usedWordsList}
+            >
+              {previewWords.map((word) => (
+                <View key={word} style={styles.usedWordChip}>
+                  <Text style={styles.usedWordText}>{word}</Text>
+                </View>
+              ))}
+              {remainingUsedWords > 0 ? (
+                <View style={styles.usedWordChipSecondary}>
+                  <Text style={styles.usedWordTextSecondary}>+{remainingUsedWords}</Text>
+                </View>
+              ) : null}
+            </ScrollView>
+          </View>
+        ) : null}
 
         {/* ── Tablero ── */}
         <View style={styles.boardContainer}>
@@ -228,6 +261,63 @@ const styles = StyleSheet.create({
   },
   countdownUrgent: {
     color: COLORS.error,
+  },
+
+  usedWordsPanel: {
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(200,169,107,0.20)',
+    backgroundColor: 'rgba(8,7,16,0.72)',
+  },
+  usedWordsHeader: {
+    marginBottom: SPACING.sm,
+  },
+  usedWordsTitle: {
+    fontFamily: 'Cinzel-Bold',
+    fontSize: 10,
+    color: COLORS.gold,
+    letterSpacing: 2,
+    marginBottom: 2,
+  },
+  usedWordsHint: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 11,
+    color: 'rgba(200,190,160,0.75)',
+  },
+  usedWordsList: {
+    alignItems: 'center',
+    paddingRight: SPACING.xs,
+  },
+  usedWordChip: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: 999,
+    marginRight: SPACING.xs,
+    backgroundColor: 'rgba(255,146,77,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,146,77,0.34)',
+  },
+  usedWordChipSecondary: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  usedWordText: {
+    fontFamily: 'Cinzel-Bold',
+    fontSize: 10,
+    color: COLORS.textPrimary,
+    letterSpacing: 1,
+  },
+  usedWordTextSecondary: {
+    fontFamily: 'Cinzel-Bold',
+    fontSize: 10,
+    color: 'rgba(240,230,210,0.85)',
+    letterSpacing: 1,
   },
 
   boardContainer: {

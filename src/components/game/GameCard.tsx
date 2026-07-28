@@ -176,6 +176,13 @@ function GameCardBase({
             <Animated.View style={[styles.revealFlash, flashStyle]} />
           )}
 
+          {/* Marcador visual para palabras ya elegidas */}
+          {isRevealed && (
+            <View style={styles.usedBadge}>
+              <Text style={styles.usedBadgeText}>USADA</Text>
+            </View>
+          )}
+
           {/* Palabra dinámica */}
           <Text
             adjustsFontSizeToFit
@@ -251,5 +258,24 @@ const styles = StyleSheet.create({
   revealFlash: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+
+  usedBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: 'rgba(12,14,24,0.86)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,146,77,0.45)',
+  },
+  usedBadgeText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 8,
+    color: '#FFD6A5',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
   },
 });
