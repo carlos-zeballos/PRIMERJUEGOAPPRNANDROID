@@ -176,10 +176,12 @@ function GameCardBase({
             <Animated.View style={[styles.revealFlash, flashStyle]} />
           )}
 
-          {/* Marcador visual para palabras ya elegidas */}
+          {/* Marcador visual tipo prohibido para palabras ya elegidas */}
           {isRevealed && (
             <View style={styles.usedBadge}>
-              <Text style={styles.usedBadgeText}>USADA</Text>
+              <View style={styles.prohibitedCircle}>
+                <View style={styles.prohibitedSlash} />
+              </View>
             </View>
           )}
 
@@ -264,18 +266,25 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 6,
     right: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 999,
-    backgroundColor: 'rgba(12,14,24,0.86)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,146,77,0.45)',
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  usedBadgeText: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 8,
-    color: '#FFD6A5',
-    letterSpacing: 1.1,
-    textTransform: 'uppercase',
+  prohibitedCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#FF6B6B',
+    backgroundColor: 'rgba(12,14,24,0.86)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  prohibitedSlash: {
+    width: 12,
+    height: 2,
+    backgroundColor: '#FF6B6B',
+    transform: [{ rotate: '-45deg' }],
   },
 });
